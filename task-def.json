@@ -1,0 +1,25 @@
+{
+    "family": "my-calendar-app",
+    "networkMode": "awsvpc",
+    "containerDefinitions": [
+      {
+        "name": "my-calendar-app",
+        "image": "my-calendar-app",
+        "essential": true,
+        "memory": 512,
+        "cpu": 256,
+        "portMappings": [
+          {
+            "containerPort": 8080,
+            "hostPort": 8080
+          }
+        ]
+      }
+    ],
+    "requiresCompatibilities": [
+      "FARGATE"
+    ],
+    "cpu": "256",
+    "memory": "512"
+  }
+  

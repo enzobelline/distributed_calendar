@@ -1,46 +1,53 @@
 import uuid
-from cassandra.cluster import Cluster
-from flask import Flask, request, jsonify
 from datetime import datetime
+from flask import Flask, request, jsonify, send_from_directory
+from pymongo import MongoClient
 
-app = Flask(__name__)
+app = Flask(__name__, static_folder='static')
+
+client = MongoClient('localhost', 27017)
+db = client.calendar
 
 class Middleware:
-    def __init__(self, keyspace):
-        self.cluster = Cluster(['127.0.0.1'])
-        self.session = self.cluster.connect(keyspace)
-
     def add_event(self, title, description, start_time, end_time, guests, creator):
         event_id = uuid.uuid4()
         dependencies = self.get_dependencies(creator)
-        query = """
-        INSERT INTO events (event_id, title, description, start_time, end_time, guests, comments, creator, dependencies)
-        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-        """
-        self.session.execute(query, (event_id, title, description, start_time, end_time, guests, [], creator, dependencies))
+        event = {
+            "event_id": str(event_id),
+            "title": title,
+            "description": description,
+            "start_time": start_time,
+            "end_time": end_time,
+            "guests": guests,
+            "comments": [],
+            "creator": creator,
+            "dependencies": dependencies,
+            "timestamp": datetime.utcnow()
+        }
+        db.events.insert_one(event)
         return event_id
 
     def update_event(self, event_id, title=None, description=None, start_time=None, end_time=None, guests=None, comments=None):
-        event = self.get_event(event_id)
+        event = db.events.find_one({"event_id": event_id})
         if not event:
             return None
-        new_dependencies = self.update_dependencies(event)
-        if not self.resolve_dependencies(event['dependencies']):
-            raise Exception("Unresolved dependencies detected.")
-        query = """
-        UPDATE events SET title=%s, description=%s, start_time=%s, end_time=%s, guests=%s, comments=%s, dependencies=%s
-        WHERE event_id=%s
-        """
-        self.session.execute(query, (title or event['title'], description or event['description'],
-                                     start_time or event['start_time'], end_time or event['end_time'],
-                                     guests or event['guests'], comments or event['comments'],
-                                     new_dependencies, event_id))
+        new_values = {
+            "$set": {
+                "title": title or event['title'],
+                "description": description or event['description'],
+                "start_time": start_time or event['start_time'],
+                "end_time": end_time or event['end_time'],
+                "guests": guests or event['guests'],
+                "comments": comments or event['comments'],
+                "dependencies": self.update_dependencies(event),
+                "timestamp": datetime.utcnow()
+            }
+        }
+        db.events.update_one({"event_id": event_id}, new_values)
         return event_id
 
     def get_event(self, event_id):
-        query = "SELECT * FROM events WHERE event_id=%s"
-        result = self.session.execute(query, (event_id,))
-        return result.one()
+        return db.events.find_one({"event_id": event_id})
 
     def get_dependencies(self, creator):
         return {"last_event_id": str(uuid.uuid4()), "timestamp": datetime.utcnow().isoformat()}
@@ -54,13 +61,7 @@ class Middleware:
     def resolve_dependencies(self, dependencies):
         return True
 
-    def handle_conflict(self, existing_event, new_event):
-        if existing_event['timestamp'] >= new_event['timestamp']:
-            return existing_event
-        else:
-            return new_event
-
-middleware = Middleware('calendar')
+middleware = Middleware()
 
 @app.route('/api/events', methods=['POST'])
 def add_event():
@@ -95,10 +96,14 @@ def update_event(event_id):
 @app.route('/api/events/<event_id>', methods=['GET'])
 def get_event(event_id):
     event = middleware.get_event(event_id)
-    if event:
+    if (event):
         return jsonify(event)
     else:
         return jsonify({"error": "Event not found"}), 404
+
+@app.route('/')
+def index():
+    return send_from_directory(app.static_folder, 'index.html')
 
 if __name__ == '__main__':
     app.run(debug=True)

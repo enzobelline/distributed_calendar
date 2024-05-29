@@ -1,0 +1,36 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Distributed Calendar</title>
+    <script>
+        async function addEvent() {
+            const title = document.getElementById("title").value;
+            const description = document.getElementById("description").value;
+            const startTime = document.getElementById("start_time").value;
+            const endTime = document.getElementById("end_time").value;
+            const guests = document.getElementById("guests").value.split(",");
+            const creator = "user123"; // Example username
+
+            const response = await fetch('/api/events', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({ title, description, start_time: startTime, end_time: endTime, guests, creator })
+            });
+            const data = await response.json();
+            console.log(data);
+        }
+    </script>
+</head>
+<body>
+    <form>
+        <input type="text" id="title" placeholder="Title">
+        <textarea id="description" placeholder="Description"></textarea>
+        <input type="datetime-local" id="start_time">
+        <input type="datetime-local" id="end_time">
+        <input type="text" id="guests" placeholder="Guests (comma separated)">
+        <button type="button" onclick="addEvent()">Add Event</button>
+    </form>
+</body>
+</html>
