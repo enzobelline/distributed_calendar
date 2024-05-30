@@ -1,9 +1,11 @@
 import uuid
 from datetime import datetime
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template
 from pymongo import MongoClient
+import secrets
 
-app = Flask(__name__, static_folder='static')
+app = Flask(__name__, static_folder='static', template_folder='templates')
+app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 
 client = MongoClient('localhost', 27017)
 db = client.calendar
@@ -61,22 +63,32 @@ class Middleware:
     def resolve_dependencies(self, dependencies):
         return True
 
+    def authenticate_user(self, username, password):
+        user = db.users.find_one({"username": username, "password": password})
+        return user is not None
+
 middleware = Middleware()
 
 @app.route('/api/events', methods=['POST'])
 def add_event():
+    if 'username' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
     title = data['title']
     description = data['description']
     start_time = data['start_time']
     end_time = data['end_time']
     guests = data['guests']
-    creator = data['creator']
+    creator = session['username']
     event_id = middleware.add_event(title, description, start_time, end_time, guests, creator)
     return jsonify({"event_id": str(event_id)})
 
 @app.route('/api/events/<event_id>', methods=['PUT'])
 def update_event(event_id):
+    if 'username' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     data = request.json
     title = data.get('title')
     description = data.get('description')
@@ -95,15 +107,44 @@ def update_event(event_id):
 
 @app.route('/api/events/<event_id>', methods=['GET'])
 def get_event(event_id):
+    if 'username' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
     event = middleware.get_event(event_id)
-    if (event):
+    if event:
         return jsonify(event)
     else:
         return jsonify({"error": "Event not found"}), 404
 
 @app.route('/')
 def index():
+    if 'username' not in session:
+        print("No username in session. Redirecting to login.")
+        return redirect(url_for('login'))
+    print("Username in session. Rendering index.")
     return send_from_directory(app.static_folder, 'index.html')
+
+@app.route('/login', methods=['GET', 'POST'])
+def login():
+    error = None
+    if request.method == 'POST':
+        data = request.json
+        username = data['username']
+        password = data['password']
+        if middleware.authenticate_user(username, password):
+            session['username'] = username
+            print("Login successful. Redirecting to index.")
+            return jsonify({"success": True, "username": username})
+        else:
+            error = "Invalid credentials"
+            print("Invalid credentials. Showing error.")
+            return jsonify({"success": False, "error": error})
+    return render_template('login.html', error=error)
+
+@app.route('/logout')
+def logout():
+    session.pop('username', None)
+    return redirect(url_for('login'))
 
 if __name__ == '__main__':
     app.run(debug=True)

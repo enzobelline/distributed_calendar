@@ -9,21 +9,30 @@
             const startTime = document.getElementById("start_time").value;
             const endTime = document.getElementById("end_time").value;
             const guests = document.getElementById("guests").value.split(",");
-            const creator = "user123"; // Example username
-
+            
             const response = await fetch('/api/events', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ title, description, start_time: startTime, end_time: endTime, guests, creator })
+                body: JSON.stringify({ title, description, start_time: startTime, end_time: endTime, guests })
             });
             const data = await response.json();
             console.log(data);
         }
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const username = sessionStorage.getItem("username");
+            if (!username) {
+                window.location.href = '/login';
+            } else {
+                document.getElementById("username").textContent = username;
+            }
+        });
     </script>
 </head>
 <body>
+    <p>Welcome, <span id="username"></span></p>
     <form>
         <input type="text" id="title" placeholder="Title">
         <textarea id="description" placeholder="Description"></textarea>
@@ -32,5 +41,12 @@
         <input type="text" id="guests" placeholder="Guests (comma separated)">
         <button type="button" onclick="addEvent()">Add Event</button>
     </form>
+    <button onclick="logout()">Logout</button>
+    <script>
+        function logout() {
+            sessionStorage.removeItem("username");
+            window.location.href = '/logout';
+        }
+    </script>
 </body>
 </html>
