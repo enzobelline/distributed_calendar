@@ -16,6 +16,10 @@ class Middleware:
         dependencies = self.get_dependencies(creator)
         event = {
             "event_id": str(event_id),
+	        "membership_list": {event_id: 'alive'},
+	        "gossip_interval": 5,
+	        "heartbeat_interval": 1,
+	        "last_heartbeat": {event_id: datetime.utcnow()},
             "title": title,
             "description": description,
             "start_time": start_time,
@@ -27,6 +31,7 @@ class Middleware:
             "timestamp": datetime.utcnow()
         }
         db.events.insert_one(event)
+        start_background_thread(event):
         return event_id
 
     def update_event(self, event_id, title=None, description=None, start_time=None, end_time=None, guests=None, comments=None):
@@ -146,5 +151,51 @@ def logout():
     session.pop('username', None)
     return redirect(url_for('login'))
 
+
+def gossip(node):
+    while True:
+        # Select a random subset of nodes to gossip with
+        subset = random.sample(list(node["membership_list"].keys()), min(3, len(node["membership_list"])))
+        for peer in subset:
+            send_gossip(node, peer)
+        time.sleep(node["gossip_interval"])
+
+def send_gossip(node, peer):
+    # Simulate sending gossip to a peer
+    peer_node = get_node_by_id(peer)
+    if peer_node:
+        merge_membership_lists(node, peer_node)
+
+def merge_membership_lists(node, peer_node):
+    # Merge membership lists
+    for peer_id, status in peer_node["membership_list"].items():
+        if peer_id not in node["membership_list"]:
+            node["membership_list"][peer_id] = status
+        elif node["membership_list"][peer_id] == 'alive' and status == 'dead':
+            node["membership_list"][peer_id] = 'dead'
+        elif node["membership_list"][peer_id] == 'suspected' and status == 'alive':
+            node["membership_list"][peer_id] = 'alive'
+    # Update heartbeat timestamps
+    for peer_id in peer_node["last_heartbeat"]:
+        if peer_id not in node["last_heartbeat"] or peer_node["last_heartbeat"][peer_id] > node["last_heartbeat"][peer_id]:
+            node["last_heartbeat"][peer_id] = peer_node["last_heartbeat"][peer_id]
+
+def get_node_by_id(event_id):
+    # Function to retrieve a node object by its ID
+    return middleware.get_event(event_id)
+
+
+#@app.before_first_request
+def start_background_thread(node):
+    threading.Thread(target=gossip, args=(node,)).start()
+    threading.Thread(target=monitor_heartbeats, args=(node,)).start()
+    threading.Thread(target=send_heartbeat, args=(node,)).start()
+
+
+
 if __name__ == '__main__':
     app.run(debug=True)
+
+
+
+
