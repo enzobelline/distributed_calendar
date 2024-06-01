@@ -1,3 +1,7 @@
+import random
+import time
+import threading
+import certifi
 import uuid
 from datetime import datetime
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template
@@ -7,7 +11,11 @@ import secrets
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 
-client = MongoClient('localhost', 27017)
+port = 27017
+uri = "mongodb+srv://Cluster94896:123@cluster94896.eyktwpb.mongodb.net/"
+client = MongoClient(uri, tlsCAFile=certifi.where())
+
+#client = MongoClient('localhost', 27017)
 db = client.calendar
 
 class Middleware:
@@ -16,10 +24,10 @@ class Middleware:
         dependencies = self.get_dependencies(creator)
         event = {
             "event_id": str(event_id),
-	        "membership_list": {event_id: 'alive'},
+	        "membership_list": {str(event_id): 'alive'},
 	        "gossip_interval": 5,
 	        "heartbeat_interval": 1,
-	        "last_heartbeat": {event_id: datetime.utcnow()},
+	        "last_heartbeat": {str(event_id): time.time()},
             "title": title,
             "description": description,
             "start_time": start_time,
@@ -31,7 +39,8 @@ class Middleware:
             "timestamp": datetime.utcnow()
         }
         db.events.insert_one(event)
-        start_background_thread(event):
+        start_background_thread(event)
+        #print(event)
         return event_id
 
     def update_event(self, event_id, title=None, description=None, start_time=None, end_time=None, guests=None, comments=None):
@@ -184,6 +193,25 @@ def get_node_by_id(event_id):
     # Function to retrieve a node object by its ID
     return middleware.get_event(event_id)
 
+def monitor_heartbeats(node):
+    while True:
+        current_time = time.time()
+        for peer_id in list(node["last_heartbeat"].keys()):
+            if current_time - node["last_heartbeat"][peer_id] > node["gossip_interval"] * 2:
+                node["membership_list"][peer_id] = 'suspected'
+            if current_time - node["last_heartbeat"][peer_id] > node["gossip_interval"] * 4:
+                node["membership_list"][peer_id] = 'dead'
+        time.sleep(node["heartbeat_interval"])
+
+def send_heartbeat(node):
+    while True:
+        node["last_heartbeat"][node["event_id"]] = time.time()
+        for peer_id in node["membership_list"].keys():
+            if peer_id != node["event_id"]:
+                peer_node = get_node_by_id(peer_id)
+                if peer_node:
+                    peer_node["last_heartbeat"][node["event_id"]] = time.time()
+        time.sleep(node["heartbeat_interval"])
 
 #@app.before_first_request
 def start_background_thread(node):
