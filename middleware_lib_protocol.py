@@ -3,19 +3,21 @@ import time
 import threading
 import certifi
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from flask import Flask, request, jsonify, send_from_directory, session, redirect, url_for, render_template
 from pymongo import MongoClient
 import secrets
+import pytz
+
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 
 port = 27017
-uri = "mongodb+srv://Cluster94896:123@cluster94896.eyktwpb.mongodb.net/"
-client = MongoClient(uri, tlsCAFile=certifi.where())
+# uri = "mongodb+srv://laurence:kim@calendar-cluster.oppdc.mongodb.net/?retryWrites=true&w=majority&appName=calendar-cluster"
+# client = MongoClient(uri, tlsCAFile=certifi.where())
 
-#client = MongoClient('localhost', 27017)
+client = MongoClient('localhost', 27017)
 db = client.calendar
 
 class Middleware:
@@ -83,6 +85,7 @@ class Middleware:
 
 middleware = Middleware()
 
+# COMMUNICATION MIDDLEWARE ROUTE FUNCTIONS
 @app.route('/api/events', methods=['POST'])
 def add_event():
     if 'username' not in session:
@@ -138,6 +141,65 @@ def index():
     print("Username in session. Rendering index.")
     return send_from_directory(app.static_folder, 'index.html')
 
+@app.route('/api/my_events', methods=['GET'])
+def get_my_events():
+    if 'username' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    username = session['username']
+    current_time = datetime.utcnow()
+    print(f"Current UTC time: {current_time}")
+
+    events = list(db.events.find({
+        "$or": [
+            {"creator": username},
+            {"guests": username}
+        ],
+        "start_time": {"$gte": current_time}
+    }).sort("start_time", 1))
+
+    print(f"Number of events found: {len(events)}")
+    for event in events:
+        event["_id"] = str(event["_id"])
+        print(f"Event: {event}")
+
+    return jsonify(events)
+
+@app.route('/api/my_week_events', methods=['GET'])
+def get_my_week_events():
+    if 'username' not in session:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    username = session['username']
+    utc_now = datetime.utcnow().replace(tzinfo=pytz.utc)
+    
+    # Get the start of the current week (Sunday)
+    today = datetime.utcnow().replace(tzinfo=pytz.utc)
+    start_of_week = today - timedelta(days=today.weekday() + 1)
+    start_of_week = start_of_week.replace(hour=0, minute=0, second=0, microsecond=0)
+
+    # Get the end of the current week (Saturday)
+    end_of_week = start_of_week + timedelta(days=6, hours=23, minutes=59, seconds=59)
+
+    # Find events where the user is the creator or a guest and the event is within the current week
+    events = list(db.events.find({
+        "$or": [
+            {"creator": username},
+            {"guests": username}
+        ],
+        "start_time": {"$gte": start_of_week, "$lte": end_of_week}
+    }).sort("start_time", 1))
+
+    # Send UTC times to the frontend
+    for event in events:
+        event["_id"] = str(event["_id"])
+        event["start_time"] = event["start_time"].isoformat()
+        event["end_time"] = event["end_time"].isoformat()
+
+    return jsonify(events)
+
+
+# LOGIN  MIDDLEWARE ROUTE FUNCTIONS
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None

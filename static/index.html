@@ -2,6 +2,23 @@
 <html>
 <head>
     <title>Distributed Calendar</title>
+    <style>
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        th, td {
+            border: 1px solid black;
+            padding: 10px;
+            text-align: left;
+        }
+        th {
+            background-color: #f2f2f2;
+        }
+        .event-list {
+            margin-top: 20px;
+        }
+    </style>
     <script>
         async function addEvent() {
             const title = document.getElementById("title").value;
@@ -9,7 +26,7 @@
             const startTime = document.getElementById("start_time").value;
             const endTime = document.getElementById("end_time").value;
             const guests = document.getElementById("guests").value.split(",");
-            
+
             const response = await fetch('/api/events', {
                 method: 'POST',
                 headers: {
@@ -19,6 +36,36 @@
             });
             const data = await response.json();
             console.log(data);
+            loadEvents();  // Reload events after adding a new one
+        }
+
+        async function loadEvents() {
+            const response = await fetch('/api/my_week_events', {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json'
+                }
+            });
+            const events = await response.json();
+            const calendar = document.getElementById("calendar");
+            const eventList = document.getElementById("event-list");
+            // Clear previous events
+            for (let i = 0; i <= 6; i++) {
+                document.getElementById(`day${i}`).innerHTML = "";
+            }
+            eventList.innerHTML = "";
+            events.forEach(event => {
+                const startTimeLocal = new Date(event.start_time).toLocaleString();
+                const dayOfWeek = new Date(event.start_time).getDay();  // Sunday is 0, Monday is 1, ..., Saturday is 6
+                const eventItem = document.createElement("div");
+                eventItem.textContent = `${event.title} - ${startTimeLocal} (Created by: ${event.creator})`;
+                document.getElementById(`day${dayOfWeek}`).appendChild(eventItem);
+
+                // Add event to the list
+                const listItem = document.createElement("li");
+                listItem.textContent = `${event.title} - ${startTimeLocal} (Created by: ${event.creator})`;
+                eventList.appendChild(listItem);
+            });
         }
 
         document.addEventListener('DOMContentLoaded', function() {
@@ -27,8 +74,14 @@
                 window.location.href = '/login';
             } else {
                 document.getElementById("username").textContent = username;
+                loadEvents();  // Load events when the page is loaded
             }
         });
+
+        function logout() {
+            sessionStorage.removeItem("username");
+            window.location.href = '/logout';
+        }
     </script>
 </head>
 <body>
@@ -41,12 +94,34 @@
         <input type="text" id="guests" placeholder="Guests (comma separated)">
         <button type="button" onclick="addEvent()">Add Event</button>
     </form>
+    <table id="calendar">
+        <thead>
+            <tr>
+                <th>Sunday</th>
+                <th>Monday</th>
+                <th>Tuesday</th>
+                <th>Wednesday</th>
+                <th>Thursday</th>
+                <th>Friday</th>
+                <th>Saturday</th>
+            </tr>
+        </thead>
+        <tbody>
+            <tr>
+                <td id="day0"></td>
+                <td id="day1"></td>
+                <td id="day2"></td>
+                <td id="day3"></td>
+                <td id="day4"></td>
+                <td id="day5"></td>
+                <td id="day6"></td>
+            </tr>
+        </tbody>
+    </table>
+    <div class="event-list">
+        <h2>Upcoming Events</h2>
+        <ul id="event-list"></ul>
+    </div>
     <button onclick="logout()">Logout</button>
-    <script>
-        function logout() {
-            sessionStorage.removeItem("username");
-            window.location.href = '/logout';
-        }
-    </script>
 </body>
 </html>
