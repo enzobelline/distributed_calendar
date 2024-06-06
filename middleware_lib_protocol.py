@@ -11,6 +11,9 @@ import pytz
 import logging
 import networkx as nx
 import matplotlib.pyplot as plt
+import networkx as nx
+from pyvis.network import Network
+from locust import HttpUser, task, between
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = secrets.token_hex(16)  # Generate a random secret key
@@ -21,24 +24,40 @@ port = 27017
 # client = MongoClient(uri, tlsCAFile=certifi.where())
 
 client = MongoClient('localhost', 27017)
-db = client.calendar
+db = client.larger_calendar
+# db = client.calendar
 
 
 class Middleware:
+# logging.basicConfig(level=logging.INFO)
+# logger = logging.getLogger(__name__)
     def __init__(self):
         self.events = set()
-#middleware LIB functions
+        self.user_db = client.larger_calendar
+
+    def authenticate_user(self, username, password):
+        logger.debug(f"Attempting to authenticate user: {username}")
+        user = self.user_db.users.find_one({"username": username, "password": password})
+        if user:
+            logger.debug(f"Authentication successful for user: {username}")
+            return True
+        else:
+            logger.debug(f"Authentication failed for user: {username}")
+            return False
+
+    # Middleware LIB functions
     def add_event(self, title, description, start_time, end_time, guests, creator):
         event_id = uuid.uuid4()
         self.events.add(str(event_id))
         dependencies = self.get_dependencies(creator)
+        lower_bound, upper_bound = self.initialize_bounds()
         event = {
             "event_id": str(event_id),
-	        "membership_list": {element: 'alive' for element in self.events},
-	        "gossip_interval": 5,
-	        "heartbeat_interval": 1,
-	        "last_heartbeat": {str(event_id): time.time()},
-            "event_reputations":{str(event_id): random.randint(0,10)},
+            "membership_list": {element: 'alive' for element in self.events},
+            "gossip_interval": 5,
+            "heartbeat_interval": 1,
+            "last_heartbeat": {str(event_id): time.time()},
+            "event_reputations": {str(event_id): random.randint(0, 10)},
             "aggregation_interval": 1,
             "title": title,
             "description": description,
@@ -48,17 +67,24 @@ class Middleware:
             "comments": [],
             "creator": creator,
             "dependencies": dependencies,
+            "lower_bound": lower_bound,
+            "upper_bound": upper_bound,
+            "CommitBeforeQueue": [],
+            "CommitAfterQueue": [],
             "timestamp": datetime.utcnow()
         }
         db.events.insert_one(event)
         start_background_thread(event)
-        #print(event)
         return event_id
 
     def update_event(self, event_id, title=None, description=None, start_time=None, end_time=None, guests=None, comments=None):
         event = db.events.find_one({"event_id": event_id})
         if not event:
             return None
+        
+        # Adjust bounds dynamically based on dependencies and current operations
+        new_lower_bound, new_upper_bound = self.calculate_dynamic_bounds(event)
+
         new_values = {
             "$set": {
                 "title": title or event['title'],
@@ -68,6 +94,8 @@ class Middleware:
                 "guests": guests or event['guests'],
                 "comments": comments or event['comments'],
                 "dependencies": self.update_dependencies(event),
+                "lower_bound": new_lower_bound,
+                "upper_bound": new_upper_bound,
                 "timestamp": datetime.utcnow()
             }
         }
@@ -113,13 +141,12 @@ class Middleware:
         dependencies['timestamp'] = datetime.utcnow().isoformat()
         return dependencies
 
-
     def resolve_dependencies(self, dependencies):
         last_event_id = dependencies.get('last_event_id')
         if last_event_id:
             last_event = db.events.find_one({"event_id": last_event_id})
             if last_event:
-                # Check if the event is fully resolveda
+                # Check if the event is fully resolved
                 if self.check_event_resolved(last_event):
                     return True
                 else:
@@ -141,12 +168,12 @@ class Middleware:
                     return False
         return True
 
-#middleware login functions
+    # Middleware login functions
     def authenticate_user(self, username, password):
         user = db.users.find_one({"username": username, "password": password})
         return user is not None
     
-#middleware gossip functions
+    # Middleware gossip functions
     def update_gossip(self, event_id, membership_list, last_heartbeat, event_reputations):
         event = db.events.find_one({"event_id": event_id})
         if not event:
@@ -154,21 +181,55 @@ class Middleware:
         new_values = {
             "$set": {
                 "membership_list": membership_list,
-	            "gossip_interval": 5,
-	            "heartbeat_interval": 1,
-	            "last_heartbeat": last_heartbeat,
+                "gossip_interval": 5,
+                "heartbeat_interval": 1,
+                "last_heartbeat": last_heartbeat,
                 "event_reputations": event_reputations,
                 "aggregation_interval": 1,
             }
         }
         db.events.update_one({"event_id": event_id}, new_values)
         return event_id
-#middleware DEPENDANCY GRAPH VISUALIZATION functions
+
+    # Middleware dependency graph visualization functions
+    # def build_dependency_graph(self):
+    #     G = nx.DiGraph()
+
+    #     # Traverse all events to build the graph
+    #     for event in db.events.find():
+    #         event_id = event["event_id"]
+    #         G.add_node(event_id, label=event.get("title", "No Title"))
+
+    #         dependencies = event.get("dependencies", [])
+    #         for dep in dependencies:
+    #             dep_event_id = dep.get("event_id")
+    #             if dep_event_id:
+    #                 G.add_node(dep_event_id)
+    #                 G.add_edge(dep_event_id, event_id)  # Directed edge from dependency to event
+
+    #     return G
+
+    # def plot_dependency_graph(self):
+    #     G = self.build_dependency_graph()
+
+    #     pos = nx.spring_layout(G)  # Layout for visualization
+    #     plt.figure(figsize=(12, 8))
+
+    #     # Draw nodes with labels
+    #     nx.draw(G, pos, with_labels=True, labels=nx.get_node_attributes(G, 'label'), node_size=3000, node_color="skyblue", font_size=10, font_weight="bold", arrowsize=20)
+    #     nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): "depends" for u, v in G.edges()}, font_color='red')
+
+    #     plt.title("Event Dependency Graph")
+    #     plt.show()
+
     def build_dependency_graph(self):
         G = nx.DiGraph()
 
+        # Fetch all events from the database
+        events = list(db.events.find({}, {"event_id": 1, "title": 1, "dependencies": 1}))
+
         # Traverse all events to build the graph
-        for event in db.events.find():
+        for event in events:
             event_id = event["event_id"]
             G.add_node(event_id, label=event.get("title", "No Title"))
 
@@ -181,21 +242,41 @@ class Middleware:
 
         return G
 
-    def plot_dependency_graph(self):
+    def visualize_graph(self):
         G = self.build_dependency_graph()
 
-        pos = nx.spring_layout(G)  # Layout for visualization
-        plt.figure(figsize=(12, 8))
+        # Use Pyvis for interactive visualization
+        net = Network(notebook=True, directed=True)
+        net.from_nx(G)
 
-        # Draw nodes with labels
-        nx.draw(G, pos, with_labels=True, labels=nx.get_node_attributes(G, 'label'), node_size=3000, node_color="skyblue", font_size=10, font_weight="bold", arrowsize=20)
-        nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): "depends" for u, v in G.edges()}, font_color='red')
+        # Save and display the graph
+        net.show("event_dependency_graph.html")
+# concurrency control dynamic timestamp protocol 
+    def calculate_dynamic_bounds(self, event):
+        lower_bound = event.get("lower_bound", datetime.utcnow())
+        upper_bound = event.get("upper_bound", datetime.utcnow() + self.get_time_delta())
+        
+        # Adjust based on dependencies
+        for dependency in event["dependencies"]:
+            dep_event = self.get_event(dependency["event_id"])
+            if dep_event:
+                lower_bound = max(lower_bound, dep_event["upper_bound"])
+                upper_bound = min(upper_bound, dep_event["lower_bound"])
+        
+        return lower_bound, upper_bound
 
-        plt.title("Event Dependency Graph")
-        plt.show()
+    def initialize_bounds(self):
+        # Initialize lower and upper bounds for new events
+        lower_bound = datetime.utcnow()
+        upper_bound = lower_bound + self.get_time_delta()
+        return lower_bound, upper_bound
+
+    def get_time_delta(self):
+        # Determine appropriate time delta based on system metrics or configuration
+        return timedelta(seconds=1)
 
 middleware = Middleware()
-middleware.plot_dependency_graph()
+middleware.visualize_graph()
 
 # COMMUNICATION MIDDLEWARE ROUTE FUNCTIONS
 @app.route('/api/events', methods=['POST'])
@@ -279,7 +360,6 @@ def get_my_events():
 
 @app.route('/api/my_week_events', methods=['GET'])
 def get_my_week_events():
-    #print("get_my_week_events used")
     if 'username' not in session:
         return jsonify({"error": "Unauthorized"}), 401
 
@@ -315,8 +395,52 @@ def get_my_week_events():
             start_background_thread(event)
     return jsonify(events)
 
+# Middleware to measure latency
+@app.before_request
+def start_timer():
+    request.start_time = time.time()
 
-# LOGIN  MIDDLEWARE ROUTE FUNCTIONS
+@app.after_request
+def log_request(response):
+    latency = time.time() - request.start_time
+    app.logger.info(f"Request latency: {latency:.4f} seconds")
+    return response
+
+# Endpoint for generating load
+@app.route('/api/generate_load', methods=['POST'])
+def generate_load():
+    data = request.json
+    num_requests = data['num_requests']
+    for _ in range(num_requests):
+        create_random_event()
+    return jsonify({"message": "Load generated"}), 200
+
+# Function to create random event
+def create_random_event():
+    event_id = str(uuid.uuid4())
+    title = f"Event {event_id[:8]}"
+    description = f"Description for {title}"
+    start_time = datetime.utcnow() + timedelta(days=random.randint(0, 30))
+    end_time = start_time + timedelta(hours=random.randint(1, 4))
+    guests = random.sample(users, random.randint(1, 5))
+    creator = random.choice(users)
+    dependencies = []
+
+    event = {
+        "event_id": event_id,
+        "title": title,
+        "description": description,
+        "start_time": start_time.isoformat(),
+        "end_time": end_time.isoformat(),
+        "guests": guests,
+        "creator": creator,
+        "dependencies": dependencies,
+        "timestamp": datetime.utcnow().isoformat()
+    }
+    db.events.insert_one(event)
+
+
+# LOGIN MIDDLEWARE ROUTE FUNCTIONS
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     error = None
@@ -404,7 +528,7 @@ def aggregate_reputation_scores(node):
             node["event_reputations"][event_id] = sum(scores)  
             time.sleep(node["aggregation_interval"])
 
-def get_all_reputation_scores(node,event_id):
+def get_all_reputation_scores(node, event_id):
     print("get_all_reputation_scores used")
     # Retrieve reputation scores for a given event from all nodes
     all_scores = []
@@ -413,7 +537,6 @@ def get_all_reputation_scores(node,event_id):
         if peer_node and event_id in peer_node["event_reputations"]:
             all_scores.append(peer_node["event_reputations"][event_id])
     return all_scores
-
 
 
 #@app.before_first_request
@@ -425,4 +548,3 @@ def start_background_thread(node):
 
 if __name__ == '__main__':
     app.run(debug=True)
-
