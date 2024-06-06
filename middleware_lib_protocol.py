@@ -8,23 +8,26 @@ from flask import Flask, request, jsonify, send_from_directory, session, redirec
 from pymongo import MongoClient
 import secrets
 import pytz
-
+import logging
+import networkx as nx
+import matplotlib.pyplot as plt
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = secrets.token_hex(16)  # Generate a random secret key
 
 port = 27017
 #uri = "mongodb+srv://laurence:kim@calendar-cluster.oppdc.mongodb.net/?retryWrites=true&w=majority&appName=calendar-cluster"
-uri = "mongodb+srv://Cluster94896:123@cluster94896.eyktwpb.mongodb.net/"
-client = MongoClient(uri, tlsCAFile=certifi.where())
+# uri = "mongodb+srv://Cluster94896:123@cluster94896.eyktwpb.mongodb.net/"
+# client = MongoClient(uri, tlsCAFile=certifi.where())
 
-#client = MongoClient('localhost', 27017)
+client = MongoClient('localhost', 27017)
 db = client.calendar
+
 
 class Middleware:
     def __init__(self):
         self.events = set()
-
+#middleware LIB functions
     def add_event(self, title, description, start_time, end_time, guests, creator):
         event_id = uuid.uuid4()
         self.events.add(str(event_id))
@@ -71,6 +74,79 @@ class Middleware:
         db.events.update_one({"event_id": event_id}, new_values)
         return event_id
 
+    def get_event(self, event_id):
+        return db.events.find_one({"event_id": event_id})
+
+    def get_dependencies(self, creator):
+        dependencies = []
+
+        # Find all recent events created by the user
+        created_events = db.events.find({"creator": creator}).sort("timestamp", -1)
+
+        # Find all recent events where the user is a guest
+        guest_events = db.events.find({"guests": creator}).sort("timestamp", -1)
+
+        for event in created_events:
+            dependencies.append({
+                "event_id": event["event_id"],
+                "timestamp": event["timestamp"]
+            })
+
+        for event in guest_events:
+            dependencies.append({
+                "event_id": event["event_id"],
+                "timestamp": event["timestamp"]
+            })
+
+        if dependencies:
+            # Optionally sort and pick the most recent events if needed
+            dependencies = sorted(dependencies, key=lambda x: x['timestamp'], reverse=True)
+
+        return dependencies if dependencies else [{
+            "event_id": None,
+            "timestamp": datetime.utcnow().isoformat()
+        }]
+
+    def update_dependencies(self, event):
+        dependencies = event['dependencies']
+        dependencies['last_event_id'] = str(event['event_id'])
+        dependencies['timestamp'] = datetime.utcnow().isoformat()
+        return dependencies
+
+
+    def resolve_dependencies(self, dependencies):
+        last_event_id = dependencies.get('last_event_id')
+        if last_event_id:
+            last_event = db.events.find_one({"event_id": last_event_id})
+            if last_event:
+                # Check if the event is fully resolveda
+                if self.check_event_resolved(last_event):
+                    return True
+                else:
+                    # Recursively resolve dependencies
+                    return self.resolve_dependencies(last_event['dependencies'])
+        return True
+
+    def check_event_resolved(self, event):
+        dependencies = event.get('dependencies', {})
+        last_event_id = dependencies.get('last_event_id')
+        if last_event_id:
+            last_event = db.events.find_one({"event_id": last_event_id})
+            if last_event:
+                required_fields = ['title', 'description', 'timestamp']  # Example of necessary fields
+                if all(field in last_event for field in required_fields):
+                    # Recursively check if the last event's dependencies are resolved
+                    return self.check_event_resolved(last_event)
+                else:
+                    return False
+        return True
+
+#middleware login functions
+    def authenticate_user(self, username, password):
+        user = db.users.find_one({"username": username, "password": password})
+        return user is not None
+    
+#middleware gossip functions
     def update_gossip(self, event_id, membership_list, last_heartbeat, event_reputations):
         event = db.events.find_one({"event_id": event_id})
         if not event:
@@ -87,27 +163,39 @@ class Middleware:
         }
         db.events.update_one({"event_id": event_id}, new_values)
         return event_id
+#middleware DEPENDANCY GRAPH VISUALIZATION functions
+    def build_dependency_graph(self):
+        G = nx.DiGraph()
 
-    def get_event(self, event_id):
-        return db.events.find_one({"event_id": event_id})
+        # Traverse all events to build the graph
+        for event in db.events.find():
+            event_id = event["event_id"]
+            G.add_node(event_id, label=event.get("title", "No Title"))
 
-    def get_dependencies(self, creator):
-        return {"last_event_id": str(uuid.uuid4()), "timestamp": datetime.utcnow().isoformat()}
+            dependencies = event.get("dependencies", [])
+            for dep in dependencies:
+                dep_event_id = dep.get("event_id")
+                if dep_event_id:
+                    G.add_node(dep_event_id)
+                    G.add_edge(dep_event_id, event_id)  # Directed edge from dependency to event
 
-    def update_dependencies(self, event):
-        dependencies = event['dependencies']
-        dependencies['last_event_id'] = str(event['event_id'])
-        dependencies['timestamp'] = datetime.utcnow().isoformat()
-        return dependencies
+        return G
 
-    def resolve_dependencies(self, dependencies):
-        return True
+    def plot_dependency_graph(self):
+        G = self.build_dependency_graph()
 
-    def authenticate_user(self, username, password):
-        user = db.users.find_one({"username": username, "password": password})
-        return user is not None
+        pos = nx.spring_layout(G)  # Layout for visualization
+        plt.figure(figsize=(12, 8))
+
+        # Draw nodes with labels
+        nx.draw(G, pos, with_labels=True, labels=nx.get_node_attributes(G, 'label'), node_size=3000, node_color="skyblue", font_size=10, font_weight="bold", arrowsize=20)
+        nx.draw_networkx_edge_labels(G, pos, edge_labels={(u, v): "depends" for u, v in G.edges()}, font_color='red')
+
+        plt.title("Event Dependency Graph")
+        plt.show()
 
 middleware = Middleware()
+middleware.plot_dependency_graph()
 
 # COMMUNICATION MIDDLEWARE ROUTE FUNCTIONS
 @app.route('/api/events', methods=['POST'])
@@ -335,10 +423,6 @@ def start_background_thread(node):
     threading.Thread(target=send_heartbeat, args=(node,)).start()
 
 
-
 if __name__ == '__main__':
     app.run(debug=True)
-
-
-
 
