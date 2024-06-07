@@ -14,6 +14,8 @@ import matplotlib.pyplot as plt
 import networkx as nx
 from pyvis.network import Network
 from locust import HttpUser, task, between
+import psutil
+
 
 app = Flask(__name__, static_folder='static', template_folder='templates')
 app.secret_key = secrets.token_hex(16)  # Generate a random secret key
@@ -272,8 +274,16 @@ class Middleware:
         return lower_bound, upper_bound
 
     def get_time_delta(self):
-        # Determine appropriate time delta based on system metrics or configuration
-        return timedelta(seconds=1)
+        # Monitor CPU load as a proxy for system load
+        cpu_load = psutil.cpu_percent()
+        
+        # Adjust delta based on load (example logic)
+        if cpu_load > 75:
+            return self.base_delta * 0.5  # Reduce delta by half under high load
+        elif cpu_load < 25:
+            return self.base_delta * 1.5  # Increase delta by 50% under low load
+        else:
+            return self.base_delta  # Use base delta under normal load
 
 middleware = Middleware()
 middleware.visualize_graph()

@@ -1,0 +1,292 @@
+[{
+  "_id": {
+    "$oid": "6660f13b245ad3aa2a08dec1"
+  },
+  "event_id": "abc97473-92d4-4759-aa75-80d72830b2e2",
+  "membership_list": {
+    "abc97473-92d4-4759-aa75-80d72830b2e2": "dead"
+  },
+  "gossip_interval": 5,
+  "heartbeat_interval": 1,
+  "last_heartbeat": {
+    "abc97473-92d4-4759-aa75-80d72830b2e2": 1717674384.5811262
+  },
+  "event_reputations": {
+    "abc97473-92d4-4759-aa75-80d72830b2e2": 4
+  },
+  "aggregation_interval": 1,
+  "title": "monday 1",
+  "description": "asdf",
+  "start_time": "2024-06-03T16:13",
+  "end_time": "2024-06-03T18:13",
+  "guests": [
+    ".james"
+  ],
+  "comments": [],
+  "creator": "laurence",
+  "dependencies": [
+    {
+      "event_id": null,
+      "timestamp": "2024-06-05T23:14:03.396063"
+    }
+  ],
+  "timestamp": {
+    "$date": "2024-06-05T23:14:03.396Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6660f14e245ad3aa2a08dec2"
+  },
+  "event_id": "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c",
+  "membership_list": {
+    "abc97473-92d4-4759-aa75-80d72830b2e2": "alive",
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": "dead"
+  },
+  "gossip_interval": 5,
+  "heartbeat_interval": 1,
+  "last_heartbeat": {
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": 1717674374.5791626
+  },
+  "event_reputations": {
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": 3
+  },
+  "aggregation_interval": 1,
+  "title": "thursday1",
+  "description": "asdf",
+  "start_time": "2024-06-06T16:13",
+  "end_time": "2024-06-06T18:13",
+  "guests": [
+    ".james"
+  ],
+  "comments": [],
+  "creator": "laurence",
+  "dependencies": [
+    {
+      "event_id": "abc97473-92d4-4759-aa75-80d72830b2e2",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:03.396Z"
+      }
+    }
+  ],
+  "timestamp": {
+    "$date": "2024-06-05T23:14:22.041Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6660f16e245ad3aa2a08dec3"
+  },
+  "event_id": "6b4533e7-ef0c-4774-aa60-bb82d9cccb32",
+  "membership_list": {
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": "alive",
+    "abc97473-92d4-4759-aa75-80d72830b2e2": "alive",
+    "6b4533e7-ef0c-4774-aa60-bb82d9cccb32": "dead"
+  },
+  "gossip_interval": 5,
+  "heartbeat_interval": 1,
+  "last_heartbeat": {
+    "6b4533e7-ef0c-4774-aa60-bb82d9cccb32": 1717674374.5806725
+  },
+  "event_reputations": {
+    "6b4533e7-ef0c-4774-aa60-bb82d9cccb32": 5
+  },
+  "aggregation_interval": 1,
+  "title": "thursday2",
+  "description": "asdfasdf",
+  "start_time": "2024-06-06T20:14",
+  "end_time": "2024-06-06T22:14",
+  "guests": [
+    "laurence"
+  ],
+  "comments": [],
+  "creator": "james",
+  "dependencies": [
+    {
+      "event_id": null,
+      "timestamp": "2024-06-05T23:14:54.262813"
+    }
+  ],
+  "timestamp": {
+    "$date": "2024-06-05T23:14:54.262Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6660f397a62ae108146320cc"
+  },
+  "event_id": "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba",
+  "membership_list": {
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": "alive",
+    "abc97473-92d4-4759-aa75-80d72830b2e2": "alive",
+    "6b4533e7-ef0c-4774-aa60-bb82d9cccb32": "alive",
+    "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba": "dead"
+  },
+  "gossip_interval": 5,
+  "heartbeat_interval": 1,
+  "last_heartbeat": {
+    "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba": 1717674374.5836835
+  },
+  "event_reputations": {
+    "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba": 4
+  },
+  "aggregation_interval": 1,
+  "title": "friday1",
+  "description": "ASDFSA",
+  "start_time": "2024-06-07T18:23",
+  "end_time": "2024-06-07T21:24",
+  "guests": [
+    "james"
+  ],
+  "comments": [],
+  "creator": "laurence",
+  "dependencies": [
+    {
+      "event_id": "6b4533e7-ef0c-4774-aa60-bb82d9cccb32",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:54.262Z"
+      }
+    },
+    {
+      "event_id": "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:22.041Z"
+      }
+    },
+    {
+      "event_id": "abc97473-92d4-4759-aa75-80d72830b2e2",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:03.396Z"
+      }
+    }
+  ],
+  "timestamp": {
+    "$date": "2024-06-05T23:24:07.332Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "6660f46543218b50ebe13bd8"
+  },
+  "event_id": "86c3d59a-bc0b-473d-ba98-3b28523933cb",
+  "membership_list": {
+    "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba": "alive",
+    "86c3d59a-bc0b-473d-ba98-3b28523933cb": "alive",
+    "6b4533e7-ef0c-4774-aa60-bb82d9cccb32": "alive",
+    "abc97473-92d4-4759-aa75-80d72830b2e2": "alive",
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": "alive"
+  },
+  "gossip_interval": 5,
+  "heartbeat_interval": 1,
+  "last_heartbeat": {
+    "86c3d59a-bc0b-473d-ba98-3b28523933cb": 1717630053.5470183
+  },
+  "event_reputations": {
+    "86c3d59a-bc0b-473d-ba98-3b28523933cb": 2
+  },
+  "aggregation_interval": 1,
+  "title": "old monday",
+  "description": "hello",
+  "start_time": "2024-05-27T16:27",
+  "end_time": "2024-05-27T19:27",
+  "guests": [
+    "james"
+  ],
+  "comments": [],
+  "creator": "laurence",
+  "dependencies": [
+    {
+      "event_id": "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba",
+      "timestamp": {
+        "$date": "2024-06-05T23:24:07.332Z"
+      }
+    },
+    {
+      "event_id": "6b4533e7-ef0c-4774-aa60-bb82d9cccb32",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:54.262Z"
+      }
+    },
+    {
+      "event_id": "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:22.041Z"
+      }
+    },
+    {
+      "event_id": "abc97473-92d4-4759-aa75-80d72830b2e2",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:03.396Z"
+      }
+    }
+  ],
+  "timestamp": {
+    "$date": "2024-06-05T23:27:33.546Z"
+  }
+},
+{
+  "_id": {
+    "$oid": "66613b6de0e95188a7a3933b"
+  },
+  "event_id": "66a76814-5c17-4be3-a55f-ce4d28644037",
+  "membership_list": {
+    "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c": "alive",
+    "abc97473-92d4-4759-aa75-80d72830b2e2": "alive",
+    "6b4533e7-ef0c-4774-aa60-bb82d9cccb32": "alive",
+    "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba": "alive",
+    "66a76814-5c17-4be3-a55f-ce4d28644037": "dead"
+  },
+  "gossip_interval": 5,
+  "heartbeat_interval": 1,
+  "last_heartbeat": {
+    "66a76814-5c17-4be3-a55f-ce4d28644037": 1717674374.5886838
+  },
+  "event_reputations": {
+    "66a76814-5c17-4be3-a55f-ce4d28644037": 5
+  },
+  "aggregation_interval": 1,
+  "title": "saturday1",
+  "description": "as;ldkflj",
+  "start_time": "2024-06-08T21:30",
+  "end_time": "2024-06-08T23:30",
+  "guests": [
+    "james"
+  ],
+  "comments": [],
+  "creator": "laurence",
+  "dependencies": [
+    {
+      "event_id": "86c3d59a-bc0b-473d-ba98-3b28523933cb",
+      "timestamp": {
+        "$date": "2024-06-05T23:27:33.546Z"
+      }
+    },
+    {
+      "event_id": "ada46f3c-cdc9-4e3a-b6fb-2bcaf4f1d8ba",
+      "timestamp": {
+        "$date": "2024-06-05T23:24:07.332Z"
+      }
+    },
+    {
+      "event_id": "6b4533e7-ef0c-4774-aa60-bb82d9cccb32",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:54.262Z"
+      }
+    },
+    {
+      "event_id": "c5bb7bd9-3b23-4ac0-90cf-d02e38dee84c",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:22.041Z"
+      }
+    },
+    {
+      "event_id": "abc97473-92d4-4759-aa75-80d72830b2e2",
+      "timestamp": {
+        "$date": "2024-06-05T23:14:03.396Z"
+      }
+    }
+  ],
+  "timestamp": {
+    "$date": "2024-06-06T04:30:37.392Z"
+  }
+}]
